@@ -1,48 +1,46 @@
-// use rk4::*;
-use ODESolver::solver_vector as SV;
-use ODESolver::solver_trait as ST;
+use odesolver::solver_vector as SV;
+// use odesolver::solver_trait as ST;
 
 
-const order:usize = 2;
-const order_t:usize = order + 1;
+// const ORDER:usize = 2;
+// const ORDER_T:usize = ORDER + 1;
 
 fn main() {
-    let xs = vec!(3.0,2.0);
-    let xsconst = [3.0,2.0];
-    let tini = 0.0;
-    let tfim = 400.0;
-    let passo = 0.00001;
-    let relSaida = 100;
-    let param = ST::EdoParam {time : tini, tend : tfim
-                          ,step : passo
-                          ,relStepOut : relSaida
+    let initial_state = vec!(3.0,2.0);
+    // let initial_state = [3.0,2.0];
+    let tstart = 0.0;
+    let tend = 400.0;
+    let step = 0.0001;
+    let ratio_step_output = 100;
+    let odeparam = SV::ODEParam {time : tstart, tend
+                          ,step
+                          ,ratio_step_output
                           };
-    let param2 = param.clone();
 
     let file_vec = "./teste_vec.txt".to_string();
-    let (data,_) = SV::edoSolver(funcsist1, param, xs, SV::rk4); 
+    let (data,_) = SV::solve_ode(system_function, odeparam, initial_state, SV::ODESolver::RK4); 
+    
     SV::data_to_file(&data, file_vec, None).unwrap();
 
     
-    let sist = FSist1 { state : [3.0,2.0]
-                        , outros_parametros : false
-    };
+    // let sist = FSist1 { state : initial_state
+    //                     // , outros_parametros : false
+    // };
 
-    let file_trait = "./teste_trait.txt".to_string();
-    let(data,_,_) = ST::edoSolver::<order,order_t,_>(sist, param2, ST::rk4);
-    ST::data_to_file(&data, file_trait, None).unwrap();
-
-    
+    // let file_trait = "./teste_trait.txt".to_string();
+    // let(data,_,_) = ST::solve_ode::<ORDER,ORDER_T,_>(sist, odeparam, ST::ODESolver::RK4);
+    // ST::data_to_file(&data, file_trait, None).unwrap();
     
 }
 
-struct FSist1<const N: usize> {
-    state : ST::State<N>,
-    outros_parametros : bool,
-}
+
+// #[derive(Clone)]
+// struct FSist1<const N: usize> {
+//     state : ST::State<N>,
+// }
 
 
-fn funcsist1 (time: f64, state: &SV::State) -> SV::DState {
+fn system_function (_time: f64, state: &SV::State) -> SV::DState {
     let mut dstate =  vec!(0.0;2);
     dstate[0] = -0.5*state[0];
     dstate[1] = -0.00001*state[1];
@@ -50,22 +48,26 @@ fn funcsist1 (time: f64, state: &SV::State) -> SV::DState {
     dstate
 }
 
-impl ST::EdoSystem<order> for FSist1<order> {
-    fn state (&self) -> &ST::State<order>{
-        return &self.state;
-    }
+// impl ST::ODESystem<ORDER> for FSist1<ORDER> {
+//     fn state (&self) -> &ST::State<ORDER>{
+//         return &self.state;
+//     }
     
-    fn dstate (&self, time : f64) -> ST::DState<order>{
-        let state = self.state;
-        let mut dstate  = [0.0; order];
+//     fn dstate (&self, _time : f64) -> ST::DState<ORDER>{
+//         let state = self.state;
+//         let mut dstate  = [0.0; ORDER];
         
-        dstate[0] = -0.5*state[0];
-        dstate[1] =  -0.00001*state[1];
+//         dstate[0] = -0.5*state[0];
+//         dstate[1] =  -0.00001*state[1];
 
-        dstate
-    }
+//         dstate
+//     }
 
-    fn new_from_state (&self, state : ST::State<order>) -> Self {
-        FSist1::<order> { state, .. *self}
-    }
-}
+//     // fn new_from_state (&self, state : ST::State<ORDER>) -> Self {
+//     //     FSist1::<ORDER> { state, .. *self}
+//     // }
+
+//     fn update_state(&mut self, state : ST::State<ORDER>) {
+//         self.state = state;
+//     }
+// }

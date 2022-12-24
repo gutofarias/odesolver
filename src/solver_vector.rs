@@ -1,39 +1,58 @@
 pub use super::*;
 
+/// Vector of the state of the system
 pub type State = Vec<f64>;
+/// Vector of the differential of the state of the system
 pub type DState = Vec<f64>;
+/// 2D vector of the data of the simulation
 pub type Data = Vec<Vec<f64>>;
 
-pub type FuncSist = fn (time: f64, state: &State) -> DState;
+/// Function that receives as input the time and state of the system and returns the differential of the state.
+pub type SystemFunction = fn (time: f64, state: &State) -> DState;
 
-pub type Solver = fn (funcSist : FuncSist, step : f64, time : f64, state : &State) -> State;
+type Solver = fn (system_function : SystemFunction, step : f64, time : f64, state : &State) -> State;
 
+/// Solves one `step` of the ODE problem.
+///
+///# Inputs
+///
+///`system_function: SystemFunction`. A function with type SystemFunction in order to obtain the differential of the state of the system.
+///
+///`odeparam: ODEParam`. A value of type ODEParam.
+///
+///`state: State`. A vector with an initial state.
+///
+///`odesolver: ODESolver`. A choice of an ODE solver.
+pub fn edo_step (odeparam : ODEParam, system_function : SystemFunction, state : State, odesolver: ODESolver) -> State {
+    
+    let solver = match odesolver {
+        ODESolver::RK4 => rk4,
+        ODESolver::Euler => euler,
+    };
 
-pub fn edoStep (edoparam : EdoParam, funcSist : FuncSist, state : State, solver: Solver) -> State {
-
-    solver(funcSist,edoparam.step
-                    ,edoparam.time,&state)
+    solver(system_function,odeparam.step
+                    ,odeparam.time,&state)
 }
 
 
-pub fn rk4 (funcSist : FuncSist, step : f64, time : f64, state : &State) -> State {
+fn rk4 (system_function : SystemFunction, step : f64, time : f64, state : &State) -> State {
     
-    let k1 = funcSist (time, state);
+    let k1 = system_function (time, state);
     
     let time2 = time + 0.5*step;
     let xs2 : Vec<f64> = state.iter().zip(&k1).map(|(x,k)|(*x) + 0.5 * k * step).collect();
-    let k2 = funcSist(time2, &xs2);
+    let k2 = system_function(time2, &xs2);
 
     let time3 = time2;
     let xs3: Vec<f64> = state.iter().zip(&k2)
         .map(|(x,kb)| (*x) + 0.5 * kb * step)
         .collect();
-    let k3 = funcSist(time3, &xs3);
+    let k3 = system_function(time3, &xs3);
     
     let time4 = time + step;
     let xs4:Vec<f64> = state.iter().zip(&k3)
         .map(|(x,kc)| (*x) + kc * step).collect();
-    let k4:Vec<f64> = funcSist(time4, &xs4); 
+    let k4:Vec<f64> = system_function(time4, &xs4); 
     
     let mut output = Vec::<f64>::new(); 
     for (i,_ka) in k1.iter().enumerate(){
@@ -43,8 +62,8 @@ pub fn rk4 (funcSist : FuncSist, step : f64, time : f64, state : &State) -> Stat
     output
 }
 
-pub fn euler (funcSist : FuncSist, step : f64, time : f64, state : &State) -> State {
-    let mut xps = funcSist(time, &state);
+fn euler (system_function : SystemFunction, step : f64, time : f64, state : &State) -> State {
+    let mut xps = system_function(time, &state);
     for (x,xp) in state.iter().zip(xps.iter_mut()) {
         *xp = (*x) + step*(*xp);
         //tou aproveitando o proprio xp pra nao criar outra variavel pro valor final.
@@ -55,15 +74,23 @@ pub fn euler (funcSist : FuncSist, step : f64, time : f64, state : &State) -> St
 
 
 
-
-pub fn edoSolver (funcSist: FuncSist, edoparam : EdoParam, state : State, solver: Solver) -> (Data, EdoParam) {
+/// Main function for solving ODEs using vectors. Returns a tuple with (Data, ODEParam), where ODEParam have updated values.
+///
+///# Inputs
+///
+///`system_function: SystemFunction`. A function with type SystemFunction in order to obtain the differential of the state of the system.
+///
+///`odeparam: ODEParam`. A value of type ODEParam.
+///
+///`odesolver: ODESolver`. A choice of an ODE solver.
+pub fn solve_ode (system_function: SystemFunction, odeparam : ODEParam, state : State, odesolver: ODESolver) -> (Data, ODEParam) {
 
     let mut data : Vec<Vec<f64>> = Vec::<Vec<f64>>::new();
     
-    let tini = edoparam.time;
-    let tend = edoparam.tend;
-    let step = edoparam.step;
-    let relStepOut = edoparam.relStepOut;
+    let tini = odeparam.time;
+    let tend = odeparam.tend;
+    // let step = odeparam.step;
+    // let ratio_step_output = odeparam.ratio_step_output;
 
 
     let mut datum: Vec<f64> = vec!(tini);
@@ -71,67 +98,76 @@ pub fn edoSolver (funcSist: FuncSist, edoparam : EdoParam, state : State, solver
     
     data.push(datum);
 
-    let mut newParam : EdoParam = edoparam;
-    let mut newState : State = state;
+    let mut new_param : ODEParam = odeparam;
+    let mut new_state : State = state;
+    
+    let solver = match odesolver {
+        ODESolver::RK4 => rk4,
+        ODESolver::Euler => euler,
+    };
+    
     loop {
-        (newState, newParam) =
-            integrator(newParam, funcSist, newState, solver);
+        (new_state, new_param) =
+            integrator(new_param, system_function, new_state, solver);
 
-        let newTime = newParam.time;
+        let new_time = new_param.time;
 
-        datum = vec!(newTime);
-        datum.append(&mut newState.clone());
+        datum = vec!(new_time);
+        datum.append(&mut new_state.clone());
         data.push(datum);
 
-        if (newTime - tend).abs() < 1.0e-10 {
+        if (new_time - tend).abs() < 1.0e-10 {
             break;
         }
     }
 
-    (data, newParam)
+    (data, new_param)
 }
 
 
 
 
-fn integrator ( edoParam : EdoParam, funcSist : FuncSist, state : State, solver : Solver) -> (Vec<f64>, EdoParam)
+fn integrator ( odeparam : ODEParam, system_function : SystemFunction, state : State, solver : Solver) -> (Vec<f64>, ODEParam)
 {
-    let mut time = edoParam.time;
-    let tend = edoParam.tend;
-    let step = edoParam.step;
-    let relStepOut = edoParam.relStepOut;
-    // let solver = edoParam.solver;
-    let mut newState: Vec<f64> = state;
+    let mut time = odeparam.time;
+    let tend = odeparam.tend;
+    let step = odeparam.step;
+    let ratio_step_output = odeparam.ratio_step_output;
+    // let solver = odeparam.solver;
+    let mut new_state: Vec<f64> = state;
 
-    for i in  0 .. relStepOut {
+    for _i in  0 .. ratio_step_output {
         if (time + step) - tend > 0.0  {
             let new_step = tend - time;
             // println!("{}",new_step);
-            newState = (solver)(funcSist, new_step, time, &newState);
+            new_state = (solver)(system_function, new_step, time, &new_state);
             time = tend;
             break;
         } else {
-            newState = (solver)(funcSist, step, time, &newState);
+            new_state = (solver)(system_function, step, time, &new_state);
             time += step;
         }
     }
 
-    let newParam = EdoParam {
-        time, tend, step, relStepOut};
+    let new_param = ODEParam {
+        time, tend, step, ratio_step_output};
     
-    (newState, newParam)
+    (new_state, new_param)
 
 }
 
 
 
+/// Saves the data to a given filename/filepath
+///
+/// The first column of data is the times, the second onwards are the values of the state at that particular time. It has an `header: Option<String>` that when given a Some(String) will add the string as a header in the data file.
 pub fn data_to_file(data:&Data,file_as_string:String, header : Option<String>) -> Result<(), Box<dyn Error>> {
     let file = File::create(file_as_string);
 
     let mut file = match file {
         Ok(f) => f,
         Err(erro) => {
-            eprintln!("Não foi possível criar o arquivo para exportar os dados. Erro: {}", erro);
+            eprintln!("Not possible to create/find the file for exporting the data. Error: {}", erro);
             return Err(Box::new(erro) as Box<dyn Error>);},
     };
     
@@ -139,7 +175,7 @@ pub fn data_to_file(data:&Data,file_as_string:String, header : Option<String>) -
         match writeln!(file,"{}", headerstring){
             Ok(_) => (),
             Err(erro) => {
-            eprintln!("Erro ao escrever no arquivo. Erro: {}", erro);
+            eprintln!("Error in writing to file. Error: {}", erro);
             return Err(Box::new(erro) as Box<dyn Error>);},
         }
     }
@@ -152,7 +188,7 @@ pub fn data_to_file(data:&Data,file_as_string:String, header : Option<String>) -
         match writeln!(file,"{}", string) {
             Ok(_) => (),
             Err(erro) => {
-            eprintln!("Erro ao escrever no arquivo. Erro: {}", erro);
+            eprintln!("Error in writing to file. Error: {}", erro);
             return Err(Box::new(erro) as Box<dyn Error>);},
         }
     }
@@ -172,14 +208,24 @@ pub fn data_to_file(data:&Data,file_as_string:String, header : Option<String>) -
 
 
 
-
-pub fn edoSolverToFile (funcSist: FuncSist, edoparam : EdoParam, state : State, filestr : String, solver: Solver) -> () {
+/// Solves the ODE but at each iteration exports the values to a file. So it does not keep a data vector in memory.
+///
+///# Inputs
+///
+///`system_function: SystemFunction`. A function with type SystemFunction in order to obtain the differential of the state of the system.
+///
+///`odeparam: ODEParam`. A value of type ODEParam.
+///
+///`odesolver: ODESolver`. A choice of an ODE solver.
+///
+///`filestr: String`. String with a given filename/filepath to save the data
+pub fn solve_ode_to_file (system_function: SystemFunction, odeparam : ODEParam, state : State, odesolver : ODESolver, filestr : String ) -> () {
 
     
-    let tini = edoparam.time;
-    let tend = edoparam.tend;
-    let step = edoparam.step;
-    let relStepOut = edoparam.relStepOut;
+    let tini = odeparam.time;
+    let tend = odeparam.tend;
+    // let step = odeparam.step;
+    // let ratio_step_output = odeparam.ratio_step_output;
 
 
     let mut file = File::create(filestr).unwrap();
@@ -194,16 +240,22 @@ pub fn edoSolverToFile (funcSist: FuncSist, edoparam : EdoParam, state : State, 
     }
     writeln!(file,"{}", string).unwrap();
 
-    let mut newParam : EdoParam = edoparam;
-    let mut newState : State = state;
+    let mut new_param : ODEParam = odeparam;
+    let mut new_state : State = state;
+    
+    let solver = match odesolver {
+        ODESolver::RK4 => rk4,
+        ODESolver::Euler => euler,
+    };
+    
     loop {
-        (newState, newParam) =
-            integrator(newParam, funcSist, newState, solver);
+        (new_state, new_param) =
+            integrator(new_param, system_function, new_state, solver);
 
-        let newTime = newParam.time;
+        let new_time = new_param.time;
 
-        datum = vec!(newTime);
-        datum.append(&mut newState.clone());
+        datum = vec!(new_time);
+        datum.append(&mut new_state.clone());
         
         string.clear();
         for value in datum {
@@ -211,7 +263,7 @@ pub fn edoSolverToFile (funcSist: FuncSist, edoparam : EdoParam, state : State, 
         }
         writeln!(file,"{}", string).unwrap();
 
-        if (newTime - tend).abs() < 1.0e-10 {
+        if (new_time - tend).abs() < 1.0e-10 {
             break;
         }
     }
