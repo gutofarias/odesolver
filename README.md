@@ -13,7 +13,7 @@ use odesolver::solver_trait as ST;
 
 const ORDER:usize = 2;
 const ORDER_T:usize = ORDER + 1;
- always ORDER + 1, so that the exporting Data has an extra field for the time.
+ //always ORDER + 1, so that the exporting Data has an extra field for the time.
 
 fn main() {
     let initial_state = [3.0,2.0];
