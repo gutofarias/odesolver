@@ -124,3 +124,63 @@ pub mod solver_trait;
 ///}
 ///```
 pub mod solver_vector;
+
+
+
+
+
+
+///odesolver using vectors but with trait bounds.
+///
+///It can be usefull if you are working with your own data types that happens to be defined by ODEs. In that case you just need to make your data type adhere to the trait in order to solve the ODEs, no matter how your data is organized. Also in this case there is no need to know the size at compile time, but not as fast due to this.
+///
+///# Example
+///
+///```
+///use odesolver::solver_vector_trait as SVT;
+///
+///fn main() {
+///    let initial_state = vec!(3.0,2.0);
+///    // let initial_state = [3.0,2.0];
+///    let tstart = 0.0;
+///    let tend = 400.0;
+///    let step = 0.0001;
+///    let ratio_step_output = 100;
+///    let odeparam = SVT::ODEParam {time : tstart, tend
+///                          ,step
+///                          ,ratio_step_output
+///                          };
+///
+///    let sist = FSist2 { state : initial_state };
+///    let file_vec_trait = "./teste_vec_trait.txt".to_string();
+///    let(data,_,_) = SVT::solve_ode::<_>(sist, odeparam, SVT::ODESolver::RK4);
+///    
+///    SVT::data_to_file(&data, file_vec_trait, None).unwrap();
+///}
+///
+///#[derive(Clone)]
+///struct FSist2 {
+///    state : SVT::State,
+///}
+///
+///impl SVT::ODESystem for FSist2 {
+///    fn state (&self) -> &SVT::State{
+///        return &self.state;
+///    }
+///    
+///    fn dstate (&self, _time : f64) -> SVT::DState{
+///        let state = self.state();
+///        let mut dstate  = Vec::<f64>::new();
+///        
+///        dstate.push(-0.5*state[0]); //[0]
+///        dstate.push(-0.00001*state[1]); //[1]
+///
+///        dstate
+///    }
+///
+///    fn update_state(&mut self, state : SVT::State) {
+///        self.state = state;
+///    }
+///}
+///```
+pub mod solver_vector_trait;
