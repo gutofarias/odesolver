@@ -9,21 +9,27 @@ pub type DState<const N: usize> = [f64;N];
 /// It should have size M = N+1. Rust does not allow for arithmetics on const generics, so I had to use an other generic.
 pub type Data<const M: usize> = Vec<[f64;M]>;
 
+///Trait used to caracterize a data type as being a system defined by ODEs. An order N (number of ODEs) has to be specified.
+///
+///If this trait is implemented you can use it to solve the ODEs on your own data type.
 pub trait ODESystem<const N: usize> {
     
+    ///Return the actual state of the system.
     fn state (&self) -> &State<N>; 
 
+    ///Returns the differential of the state of the system.
     fn dstate (&self, time : f64) -> DState<N>;
 
     // fn new_from_state (&self, state : State<N>) -> Self; 
 
+    ///Updates the state of the system.
     fn update_state (&mut self, state : State<N>);
 }
 
 
 // pub type Solver<const N:usize, Sist: EdoSystem<N>> = fn (sist: &Sist, step : f64, time : f64) -> State<N>;
-/// ODE Solver function
-pub type Solver<const N:usize, Sist> = fn (sist: &Sist, step : f64, time : f64) -> State<N>;
+// ODE Solver function
+type Solver<const N:usize, Sist> = fn (sist: &Sist, step : f64, time : f64) -> State<N>;
 
 
 fn integrator<const N:usize, Sist: ODESystem<N>> (sist : Sist, odeparam : ODEParam, solver : Solver<N,Sist>) -> (Sist, ODEParam)
@@ -64,7 +70,7 @@ fn integrator<const N:usize, Sist: ODESystem<N>> (sist : Sist, odeparam : ODEPar
 ///
 ///# inputs
 ///
-///`sist : Sist`. Any type which implements ODESystem<N> and Clone
+///`sist : Sist`. Any type which implements `ODESystem<N>` and `Clone`
 ///
 ///`odeparam : ODEParam`. An value of ODEParam.
 ///
@@ -176,7 +182,7 @@ fn rk4<const N:usize, Sist: ODESystem<N> + Clone> (sist: &Sist, step : f64, time
     let k4 = sist4.dstate(time4); 
     
     let state = sist.state();
-    let mut output = [-15.0; N]; 
+    let mut output = [0.0; N]; 
     for (i,_ka) in k1.iter().enumerate(){
         output[i] = state[i] + step*(1.0/6.0)*(k1[i] + 2.0*k2[i] + 2.0*k3[i] + k4[i]);
     }
