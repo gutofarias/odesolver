@@ -166,3 +166,167 @@ fn rk4<Sist: ODESystem + Clone> (sist: &Sist, step : f64, time : f64) -> State {
 
 
 pub use crate::solver_vector::data_to_file;
+
+
+///Similar to `solve_ode` but uses `sist` as `&mut Sist` in order to not consume the original, instead update the given one.
+///Also as it doesn't consume the caller `sist` it does not return an updated `Sist`
+pub fn solve_ode_sist_mut<Sist: ODESystem + Clone> (sist : &mut Sist, odeparam : ODEParam, odesolver: ODESolver) -> (Data, ODEParam) {
+    
+    let tini = odeparam.time;
+    let tend = odeparam.tend;
+    let step = odeparam.step;
+    let ratio_step_output = odeparam.ratio_step_output;
+
+    let capacity = ((tend-tini)/(step*(ratio_step_output as f64)) + 10.0) as usize;
+    
+    let mut data : Vec<Vec<f64>> = Vec::<Vec<f64>>::with_capacity(capacity);
+
+    let mut datum: Vec<f64> = vec!(tini);
+    datum.append(&mut sist.state().clone());
+    
+    data.push(datum);
+    
+    let mut new_param  = odeparam;
+    // let mut new_sist  = sist;
+    
+    let solver = match odesolver {
+        ODESolver::RK4 => rk4,
+        ODESolver::Euler => euler,
+    };
+    
+    loop {
+        new_param =
+            integrator_sist_mut::<Sist>(sist,new_param,solver);
+
+        let new_time = new_param.time;
+
+        datum = vec!(new_time);
+        datum.append(&mut sist.state().clone());
+        
+        data.push(datum);
+
+        if (new_time - tend).abs() < 1.0e-10 {
+            break;
+        }
+    }
+
+    (data, new_param)
+}
+
+
+
+
+
+fn integrator_sist_mut<Sist: ODESystem> (sist : &mut Sist, odeparam : ODEParam, solver : Solver<Sist>) -> ODEParam
+{
+    let mut time = odeparam.time;
+    let tend = odeparam.tend;
+    let step = odeparam.step;
+    let ratio_step_output = odeparam.ratio_step_output;
+    // let solver = odeparam.solver;
+    let mut new_state;  // = sist.state().clone();
+    // let mut new_sist = sist; 
+
+    for _i in  0 .. ratio_step_output {
+        if (time + step) - tend > 0.0  {
+            let new_step = tend - time;
+            new_state = (solver)(&sist, new_step, time);
+            // new_sist.update_state(new_state);
+            sist.update_state(new_state);
+            time = tend;
+            break;
+        } else {
+            new_state = (solver)(&sist, step, time);
+            // new_sist.update_state(new_state);
+            sist.update_state(new_state);
+            time += step;
+        }
+    }
+
+    let new_param = ODEParam {
+        time, .. odeparam};
+    
+    new_param
+}
+
+
+fn integrator_sist_mut_no_data<Sist: ODESystem> (sist : &mut Sist, odeparam : ODEParam, solver : Solver<Sist>) -> ODEParam
+{
+    let mut time = odeparam.time;
+    let tend = odeparam.tend;
+    let step = odeparam.step;
+    // let ratio_step_output = odeparam.ratio_step_output;
+    // let solver = odeparam.solver;
+    let mut new_state;  // = sist.state().clone();
+    // let mut new_sist = sist; 
+
+    // for _i in  0 .. ratio_step_output {
+    loop {
+
+        if (time + step) - tend > 0.0  {
+            let new_step = tend - time;
+            new_state = (solver)(&sist, new_step, time);
+            // new_sist.update_state(new_state);
+            sist.update_state(new_state);
+            time = tend;
+            break;
+        } 
+
+        new_state = (solver)(&sist, step, time);
+        // new_sist.update_state(new_state);
+        sist.update_state(new_state);
+        time += step;
+    }
+
+    let new_param = ODEParam {
+        time, .. odeparam};
+    
+    new_param
+}
+
+
+///Similar to `solve_ode_sist_mut` but in that case you are only interested in how the system evolves, not in the generated data.
+pub fn solve_ode_sist_mut_no_data<Sist: ODESystem + Clone> (sist : &mut Sist, odeparam : ODEParam, odesolver: ODESolver) -> ODEParam {
+    
+    let tini = odeparam.time;
+    let tend = odeparam.tend;
+    // let step = odeparam.step;
+    // let ratio_step_output = odeparam.ratio_step_output;
+
+    let mut new_param  = odeparam;
+    
+    let solver = match odesolver {
+        ODESolver::RK4 => rk4,
+        ODESolver::Euler => euler,
+    };
+
+    let mut new_time = tini;
+    
+    loop {
+
+        if (new_time - tend).abs() < 1.0e-10 {
+            break;
+        }
+        
+        new_param = integrator_sist_mut_no_data::<Sist>(sist,new_param,solver);
+
+        new_time = new_param.time;
+
+    }
+
+    new_param
+}
+
+///Simplified version of `solve_ode_mut_no_data` where only one step of the integration is made.
+///The system evolves from `time` to `time + step`
+pub fn solve_ode_step_sist_mut_no_data<Sist: ODESystem + Clone> (sist : &mut Sist, time: f64, step: f64 , odesolver: ODESolver) 
+{
+    let solver = match odesolver {
+        ODESolver::RK4 => rk4,
+        ODESolver::Euler => euler,
+    };
+
+    let new_state = (solver)(sist, step, time);
+    sist.update_state(new_state);
+}
+
