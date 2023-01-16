@@ -1,4 +1,5 @@
 pub use super::*;
+use dyn_clone::DynClone;
 
 /// Vector of the state of the system
 pub type State = Vec<f64>;
@@ -11,7 +12,7 @@ pub type Data = Vec<Vec<f64>>;
 ///Trait used to caracterize a data type as being a system defined by ODEs. 
 ///
 ///If this trait is implemented you can use it to solve the ODEs on your own data type.
-pub trait ODESystem {
+pub trait ODESystem : DynClone {
     
     ///Return the actual state of the system.
     fn state (&self) -> &State; 
@@ -22,6 +23,8 @@ pub trait ODESystem {
     ///Updates the state of the system.
     fn update_state (&mut self, state : State);
 }
+
+dyn_clone::clone_trait_object!(ODESystem);
 
 
 type Solver<Sist> = fn (sist: &Sist, step : f64, time : f64) -> State;
