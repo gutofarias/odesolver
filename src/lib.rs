@@ -23,6 +23,7 @@ pub struct ODEParam {
 /// Enum ODESolver
 ///
 /// Contains the available solvers in the library
+#[derive(Clone,Copy)]
 pub enum ODESolver {
     RK4,
     Euler,
