@@ -37,6 +37,8 @@ fn main() {
     let file_vec_trait = "./teste_vec_trait.txt".to_string();
     let(data,_,_) = SVT::solve_ode::<_>(sist, odeparam, SVT::ODESolver::RK4);
     
+
+
     
     SVT::data_to_file(&data, file_vec_trait, None).unwrap();
     
