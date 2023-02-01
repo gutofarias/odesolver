@@ -9,25 +9,27 @@ pub type Data = Vec<Vec<f64>>;
 
 /// Function that receives as input the time and state of the system and returns the differential of the state.
 pub type SystemFunction = fn (time: f64, state: &State) -> DState;
+// pub type SystemFunction2<T: Fn(f64, &State) -> DState> = fn (func : T) -> DState;
 
-type Solver = fn (system_function : SystemFunction, step : f64, time : f64, state : &State) -> State;
+// type Solver = fn (system_function : SystemFunction, step : f64, time : f64, state : &State) -> State;
+type SolverClosure<T> = fn (system_function : &mut T, step : f64, time : f64, state : &State) -> State;
 
 /// Solves one `step` of the ODE problem.
 ///
 ///# Inputs
 ///
-///`system_function: SystemFunction`. A function with type SystemFunction in order to obtain the differential of the state of the system.
+///`system_function: Closure FnMut (f64,&State) -> DState` Also an closure Fn or an fn of the type `SystemFunction` are accepted. The input is a closure or fn which receives `time : f64` and `state : &State` returning a `DState`. In other words, function with the right parameters in order to obtain the differential of the state of the system.
 ///
 ///`odeparam: ODEParam`. A value of type ODEParam.
 ///
 ///`state: State`. A vector with an initial state.
 ///
 ///`odesolver: ODESolver`. A choice of an ODE solver.
-pub fn edo_step (odeparam : ODEParam, system_function : SystemFunction, state : State, odesolver: ODESolver) -> State {
+pub fn edo_step<SysFunc : Fn (f64, &State) -> DState > (odeparam : ODEParam, system_function : &mut SysFunc, state : State, odesolver: ODESolver) -> State {
     
     let solver = match odesolver {
-        ODESolver::RK4 => rk4,
-        ODESolver::Euler => euler,
+        ODESolver::RK4 => rk4_closure::<SysFunc>,
+        ODESolver::Euler => euler_closure::<SysFunc>,
     };
 
     solver(system_function,odeparam.step
@@ -35,7 +37,48 @@ pub fn edo_step (odeparam : ODEParam, system_function : SystemFunction, state : 
 }
 
 
-fn rk4 (system_function : SystemFunction, step : f64, time : f64, state : &State) -> State {
+// fn rk4 (system_function : SystemFunction, step : f64, time : f64, state : &State) -> State {
+    
+//     let k1 = system_function (time, state);
+    
+//     let time2 = time + 0.5*step;
+//     let xs2 : Vec<f64> = state.iter().zip(&k1).map(|(x,k)|(*x) + 0.5 * k * step).collect();
+//     let k2 = system_function(time2, &xs2);
+
+//     let time3 = time2;
+//     let xs3: Vec<f64> = state.iter().zip(&k2)
+//         .map(|(x,kb)| (*x) + 0.5 * kb * step)
+//         .collect();
+//     let k3 = system_function(time3, &xs3);
+    
+//     let time4 = time + step;
+//     let xs4:Vec<f64> = state.iter().zip(&k3)
+//         .map(|(x,kc)| (*x) + kc * step).collect();
+//     let k4:Vec<f64> = system_function(time4, &xs4); 
+    
+//     let mut output = Vec::<f64>::new(); 
+//     for (i,_ka) in k1.iter().enumerate(){
+//         output.push(state[i] + step*(1.0/6.0)*(k1[i] + 2.0*k2[i] + 2.0*k3[i] + k4[i]));
+//     }
+    
+//     output
+// }
+
+// fn euler (system_function : SystemFunction, step : f64, time : f64, state : &State) -> State {
+//     let mut xps = system_function(time, &state);
+//     for (x,xp) in state.iter().zip(xps.iter_mut()) {
+//         *xp = (*x) + step*(*xp);
+//         //tou aproveitando o proprio xp pra nao criar outra variavel pro valor final.
+//     }
+
+//     xps
+// }
+
+
+// pub type SystemFunction2<T: Fn(f64, &State) -> DState> = fn (func : T) -> DState;
+
+
+fn rk4_closure<SysFunction : FnMut (f64,&State) -> DState> (system_function : &mut SysFunction, step : f64, time : f64, state : &State) -> State {
     
     let k1 = system_function (time, state);
     
@@ -62,8 +105,8 @@ fn rk4 (system_function : SystemFunction, step : f64, time : f64, state : &State
     output
 }
 
-fn euler (system_function : SystemFunction, step : f64, time : f64, state : &State) -> State {
-    let mut xps = system_function(time, &state);
+fn euler_closure<SysFunction : FnMut (f64,&State) -> DState> (system_function : &mut SysFunction, step : f64, time : f64, state : &State) -> State {
+    let mut xps = system_function(time, state);
     for (x,xp) in state.iter().zip(xps.iter_mut()) {
         *xp = (*x) + step*(*xp);
         //tou aproveitando o proprio xp pra nao criar outra variavel pro valor final.
@@ -78,12 +121,12 @@ fn euler (system_function : SystemFunction, step : f64, time : f64, state : &Sta
 ///
 ///# Inputs
 ///
-///`system_function: SystemFunction`. A function with type SystemFunction in order to obtain the differential of the state of the system.
+///`system_function: Closure FnMut (f64,&State) -> DState` Also an closure Fn or an fn of the type `SystemFunction` are accepted. The input is a closure or fn which receives `time : f64` and `state : &State` returning a `DState`. In other words, function with the right parameters in order to obtain the differential of the state of the system.
 ///
 ///`odeparam: ODEParam`. A value of type ODEParam.
 ///
 ///`odesolver: ODESolver`. A choice of an ODE solver.
-pub fn solve_ode (system_function: SystemFunction, odeparam : ODEParam, state : State, odesolver: ODESolver) -> (Data, ODEParam) {
+pub fn solve_ode <SysFunc : FnMut (f64, &State) -> DState> (mut system_function: SysFunc, odeparam : ODEParam, state : State, odesolver: ODESolver) -> (Data, ODEParam) {
 
     let mut data : Vec<Vec<f64>> = Vec::<Vec<f64>>::new();
     
@@ -102,13 +145,13 @@ pub fn solve_ode (system_function: SystemFunction, odeparam : ODEParam, state : 
     let mut new_state : State = state;
     
     let solver = match odesolver {
-        ODESolver::RK4 => rk4,
-        ODESolver::Euler => euler,
+        ODESolver::RK4 => rk4_closure,
+        ODESolver::Euler => euler_closure,
     };
     
     loop {
         (new_state, new_param) =
-            integrator(new_param, system_function, new_state, solver);
+            integrator_closure(new_param, &mut system_function, new_state, solver);
 
         let new_time = new_param.time;
 
@@ -126,8 +169,7 @@ pub fn solve_ode (system_function: SystemFunction, odeparam : ODEParam, state : 
 
 
 
-
-fn integrator ( odeparam : ODEParam, system_function : SystemFunction, state : State, solver : Solver) -> (Vec<f64>, ODEParam)
+fn integrator_closure<SysFunc : FnMut (f64, &State) -> DState> (odeparam : ODEParam, system_function : &mut SysFunc, state : State, solver : SolverClosure<SysFunc>) -> (Vec<f64>, ODEParam)
 {
     let mut time = odeparam.time;
     let tend = odeparam.tend;
@@ -155,6 +197,9 @@ fn integrator ( odeparam : ODEParam, system_function : SystemFunction, state : S
     (new_state, new_param)
 
 }
+
+
+
 
 
 
@@ -197,29 +242,18 @@ pub fn data_to_file(data:&Data,file_as_string:String, header : Option<String>) -
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
 /// Solves the ODE but at each iteration exports the values to a file. So it does not keep a data vector in memory.
 ///
 ///# Inputs
 ///
-///`system_function: SystemFunction`. A function with type SystemFunction in order to obtain the differential of the state of the system.
+///`system_function: Closure FnMut (f64,&State) -> DState` Also an closure Fn or an fn of the type `SystemFunction` are accepted. The input is a closure or fn which receives `time : f64` and `state : &State` returning a `DState`. In other words, function with the right parameters in order to obtain the differential of the state of the system.
 ///
 ///`odeparam: ODEParam`. A value of type ODEParam.
 ///
 ///`odesolver: ODESolver`. A choice of an ODE solver.
 ///
 ///`filestr: String`. String with a given filename/filepath to save the data
-pub fn solve_ode_to_file (system_function: SystemFunction, odeparam : ODEParam, state : State, odesolver : ODESolver, filestr : String ) -> () {
+pub fn solve_ode_to_file <SysFunc : FnMut (f64,&State) -> DState> (mut system_function: SysFunc, odeparam : ODEParam, state : State, odesolver : ODESolver, filestr : String ) -> () {
 
     
     let tini = odeparam.time;
@@ -244,13 +278,13 @@ pub fn solve_ode_to_file (system_function: SystemFunction, odeparam : ODEParam, 
     let mut new_state : State = state;
     
     let solver = match odesolver {
-        ODESolver::RK4 => rk4,
-        ODESolver::Euler => euler,
+        ODESolver::RK4 => rk4_closure,
+        ODESolver::Euler => euler_closure,
     };
     
     loop {
         (new_state, new_param) =
-            integrator(new_param, system_function, new_state, solver);
+            integrator_closure(new_param, &mut system_function, new_state, solver);
 
         let new_time = new_param.time;
 

@@ -1,4 +1,4 @@
-// use odesolver::solver_vector as SV;
+use odesolver::solver_vector as SV;
 use odesolver::solver_vector_trait as SVT;
 // use odesolver::solver_trait as ST;
 
@@ -8,6 +8,7 @@ use odesolver::solver_vector_trait as SVT;
 
 fn main() {
     let initial_state = vec!(3.0,2.0);
+    let mut test_state = initial_state.clone();
     // let initial_state = [3.0,2.0];
     let tstart = 0.0;
     let tend = 400.0;
@@ -18,10 +19,14 @@ fn main() {
                           ,ratio_step_output
                           };
 
-    // let file_vec = "./teste_vec.txt".to_string();
-    // let (data,_) = SV::solve_ode(system_function, odeparam, initial_state, SV::ODESolver::RK4); 
+    let test = |a:f64 , b:& SV::State | -> SV::DState  {
+        test_state = vec!(3.0,3.0); 
+        system_function(a,b)};
+    let file_vec = "./teste_vec.txt".to_string();
+    let (data,_) = SV::solve_ode(test, odeparam.clone(), initial_state.clone(), SV::ODESolver::RK4); 
+    // let (data,_) = SV::solve_ode(system_function, odeparam.clone(), initial_state.clone(), SV::ODESolver::RK4); 
     
-    // SV::data_to_file(&data, file_vec, None).unwrap();
+    SV::data_to_file(&data, file_vec, None).unwrap();
 
     
     // let sist = FSist1 { state : initial_state
@@ -33,14 +38,12 @@ fn main() {
     // ST::data_to_file(&data, file_trait, None).unwrap();
     
     
-    let sist = FSist2 { state : initial_state };
-    let file_vec_trait = "./teste_vec_trait.txt".to_string();
-    let(data,_,_) = SVT::solve_ode::<_>(sist, odeparam, SVT::ODESolver::RK4);
+    // let sist = FSist2 { state : initial_state };
+    // let file_vec_trait = "./teste_vec_trait.txt".to_string();
+    // let(data,_,_) = SVT::solve_ode::<_>(sist, odeparam, SVT::ODESolver::RK4);
     
-
-
     
-    SVT::data_to_file(&data, file_vec_trait, None).unwrap();
+    // SVT::data_to_file(&data, file_vec_trait, None).unwrap();
     
 }
 
@@ -57,13 +60,13 @@ struct FSist2 {
 }
 
 
-// fn system_function (_time: f64, state: &SV::State) -> SV::DState {
-//     let mut dstate =  vec!(0.0;2);
-//     dstate[0] = -0.5*state[0];
-//     dstate[1] = -0.00001*state[1];
+fn system_function (_time: f64, state: &SV::State) -> SV::DState {
+    let mut dstate =  vec!(0.0;2);
+    dstate[0] = -0.5*state[0];
+    dstate[1] = -0.00001*state[1];
     
-//     dstate
-// }
+    dstate
+}
 
 // impl ST::ODESystem<ORDER> for FSist1<ORDER> {
 //     fn state (&self) -> &ST::State<ORDER>{
