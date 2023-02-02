@@ -25,7 +25,7 @@ type SolverClosure<T> = fn (system_function : &mut T, step : f64, time : f64, st
 ///`state: State`. A vector with an initial state.
 ///
 ///`odesolver: ODESolver`. A choice of an ODE solver.
-pub fn edo_step<SysFunc : Fn (f64, &State) -> DState > (odeparam : ODEParam, system_function : &mut SysFunc, state : State, odesolver: ODESolver) -> State {
+pub fn solve_edo_step<SysFunc : Fn (f64, &State) -> DState > (odeparam : ODEParam, system_function : &mut SysFunc, state : State, odesolver: ODESolver) -> State {
     
     let solver = match odesolver {
         ODESolver::RK4 => rk4_closure::<SysFunc>,
